@@ -29,6 +29,10 @@
   <script>
     const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
       initialView: 'timeGridWeek',
+      slotMinTime: "07:00:00",  // hora de inicio del calendario
+      slotMaxTime: "24:00:00",  // hora final del calendario
+      slotMinHeight: 20,        // altura mínima por franja horaria (más pequeño = más compacto)
+      allDaySlot: false,
       editable: true,
       selectable: true,
       headerToolbar: {
