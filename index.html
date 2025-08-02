@@ -5,14 +5,29 @@
   <title>Horario de Materias</title>
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    #calendar { max-width: 1200px; margin: 20px auto; }
-    input { margin-bottom: 20px; }
+    body { font-family: Arial, sans-serif; display: flex; gap: 20px; padding: 20px; }
+    #materias { width: 300px; }
+    .materia {
+      border: 1px solid #ccc;
+      background: #f9f9f9;
+      margin: 5px 0;
+      padding: 8px;
+      border-radius: 5px;
+    }
+    .materia button {
+      margin-top: 5px;
+      width: 100%;
+    }
+    #calendar { flex-grow: 1; max-width: 900px; }
   </style>
 </head>
 <body>
-  <h2>Subir archivo de materias (.txt)</h2>
-  <input type="file" id="fileInput" accept=".txt,text/plain">
+  <div id="materias">
+    <h2>Materias detectadas</h2>
+    <input type="file" id="fileInput" accept=".txt,text/plain">
+    <div id="materiasLista"></div>
+  </div>
+
   <div id="calendar"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
@@ -32,34 +47,16 @@
     });
     calendar.render();
 
-    // Escuchar archivo
+    const materiasLista = document.getElementById('materiasLista');
+
+    // Leer archivo TXT
     document.getElementById('fileInput').addEventListener('change', async (e) => {
       const file = e.target.files[0];
-      if (!file) {
-        alert('Por favor selecciona un archivo .txt');
-        return;
-      }
-
-      // Validar tipo de archivo
-      if (!file.name.endsWith('.txt')) {
-        alert('El archivo debe ser un .txt');
-        return;
-      }
+      if (!file) return;
 
       const text = await file.text();
       const materias = parseTxt(text);
-
-      calendar.getEvents().forEach(event => event.remove()); // limpiar calendario
-      materias.forEach(materia => {
-        materia.horarios.forEach(h => {
-          calendar.addEvent({
-            title: `${materia.materia} (${materia.profesor})`,
-            daysOfWeek: [daysMap[h.dia]],
-            startTime: h.horaInicio,
-            endTime: h.horaFin
-          });
-        });
-      });
+      mostrarMaterias(materias);
     });
 
     // Parsear contenido del archivo .txt
@@ -86,6 +83,38 @@
         }
       });
       return materias;
+    }
+
+    // Mostrar materias detectadas en lista lateral
+    function mostrarMaterias(materias) {
+      materiasLista.innerHTML = '';
+      materias.forEach((m, index) => {
+        const div = document.createElement('div');
+        div.className = 'materia';
+        div.innerHTML = `
+          <strong>${m.materia}</strong><br>
+          Profesor: ${m.profesor}<br>
+          Horarios: ${m.horarios.map(h => `${h.dia} ${h.horaInicio}-${h.horaFin}`).join(', ')}
+          <button onclick="agregarAlCalendario(${index})">Agregar al calendario</button>
+        `;
+        materiasLista.appendChild(div);
+      });
+
+      // Guardar materias en una variable global para acceso en agregarAlCalendario
+      window.materiasDetectadas = materias;
+    }
+
+    // Agregar una materia seleccionada al calendario
+    function agregarAlCalendario(index) {
+      const materia = window.materiasDetectadas[index];
+      materia.horarios.forEach(h => {
+        calendar.addEvent({
+          title: `${materia.materia} (${materia.profesor})`,
+          daysOfWeek: [daysMap[h.dia]],
+          startTime: h.horaInicio,
+          endTime: h.horaFin
+        });
+      });
     }
   </script>
 </body>
