@@ -2,11 +2,11 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Horario de Materias</title>
+  <title>Horario de Materias con Categorías</title>
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
   <style>
     body { font-family: Arial, sans-serif; display: flex; gap: 20px; padding: 20px; }
-    #materias { width: 320px; }
+    #materias { width: 350px; }
     .materia {
       border: 1px solid #ccc;
       background: #f9f9f9;
@@ -14,26 +14,46 @@
       padding: 8px;
       border-radius: 5px;
     }
-    .materia button {
+    .materia select, .materia button {
       margin-top: 5px;
-      width: 48%;
-      display: inline-block;
+      width: 100%;
+    }
+    .materia .actions {
+      display: flex;
+      gap: 5px;
     }
     #calendar { flex-grow: 1; max-width: 900px; }
+    #filtro {
+      margin-bottom: 10px;
+    }
   </style>
 </head>
 <body>
   <div id="materias">
     <h2>Materias detectadas</h2>
     <input type="file" id="fileInput" accept=".txt,text/plain">
+    <label for="filtro">Filtrar por categoría: </label>
+    <select id="filtro">
+      <option value="All">All</option>
+      <option value="Exchange">Exchange</option>
+      <option value="Four year">Four year</option>
+    </select>
     <div id="materiasLista"></div>
   </div>
 
-  <div id="calendar"></div>
+  <div style="flex-grow: 1;">
+    <div id="calendar"></div>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
   <script>
     const daysMap = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 0 };
+
+    const categorias = [
+      { nombre: "Exchange", color: "#007bff" },
+      { nombre: "Four year", color: "#28a745" },
+      { nombre: "All", color: "#6c757d" }
+    ];
 
     const calendarEl = document.getElementById('calendar');
     const calendar = new FullCalendar.Calendar(calendarEl, {
@@ -58,7 +78,8 @@
 
       const text = await file.text();
       const materias = parseTxt(text);
-      mostrarMaterias(materias);
+      window.materiasDetectadas = materias;
+      renderMaterias();
     });
 
     // Parsear contenido del archivo .txt
@@ -81,52 +102,78 @@
             horarios.push({ dia: match[1], horaInicio: match[2], horaFin: match[3] });
           }
 
-          materias.push({ materia, profesor, horarios, addedEvents: [] });
+          materias.push({ materia, profesor, horarios, addedEvents: [], categoria: "" });
         }
       });
       return materias;
     }
 
-    // Mostrar materias detectadas en lista lateral
-    function mostrarMaterias(materias) {
+    // Renderizar materias según filtro
+    function renderMaterias() {
+      const filtro = document.getElementById('filtro').value;
       materiasLista.innerHTML = '';
-      window.materiasDetectadas = materias;
 
-      materias.forEach((m, index) => {
-        const div = document.createElement('div');
-        div.className = 'materia';
-        div.id = `materia-${index}`;
-        div.innerHTML = `
-          <strong>${m.materia}</strong><br>
-          Profesor: ${m.profesor}<br>
-          Horarios: ${m.horarios.map(h => `${h.dia} ${h.horaInicio}-${h.horaFin}`).join(', ')}<br>
-          <button onclick="agregarAlCalendario(${index})">Agregar</button>
-          <button onclick="eliminarDelCalendario(${index})">Eliminar</button>
-        `;
-        materiasLista.appendChild(div);
+      window.materiasDetectadas.forEach((m, index) => {
+        if (filtro === 'All' || m.categoria === filtro) {
+          const div = document.createElement('div');
+          div.className = 'materia';
+          div.id = `materia-${index}`;
+          div.innerHTML = `
+            <strong>${m.materia}</strong><br>
+            Profesor: ${m.profesor}<br>
+            Horarios: ${m.horarios.map(h => `${h.dia} ${h.horaInicio}-${h.horaFin}`).join(', ')}<br>
+            <label>Categoría:</label>
+            <select onchange="cambiarCategoria(${index}, this.value)">
+              <option value="">Seleccionar...</option>
+              ${categorias.map(cat => 
+                `<option value="${cat.nombre}" ${m.categoria === cat.nombre ? 'selected' : ''}>${cat.nombre}</option>`
+              ).join('')}
+            </select>
+            <div class="actions">
+              <button onclick="agregarAlCalendario(${index})">Agregar</button>
+              <button onclick="eliminarDelCalendario(${index})">Eliminar</button>
+            </div>
+          `;
+          materiasLista.appendChild(div);
+        }
       });
     }
 
-    // Agregar una materia seleccionada al calendario manualmente
+    // Cambiar categoría de una materia
+    function cambiarCategoria(index, categoria) {
+      window.materiasDetectadas[index].categoria = categoria;
+      renderMaterias(); // refrescar la lista con el filtro aplicado
+    }
+
+    // Agregar una materia seleccionada al calendario
     function agregarAlCalendario(index) {
       const materia = window.materiasDetectadas[index];
+      if (!materia.categoria) {
+        alert('Selecciona una categoría antes de agregar la materia.');
+        return;
+      }
       if (materia.addedEvents.length > 0) {
         alert('Esta materia ya está agregada al calendario.');
         return;
       }
+
+      const color = categorias.find(c => c.nombre === materia.categoria)?.color || "#6c757d";
 
       materia.horarios.forEach(h => {
         const event = calendar.addEvent({
           title: `${materia.materia} (${materia.profesor})`,
           daysOfWeek: [daysMap[h.dia]],
           startTime: h.horaInicio,
-          endTime: h.horaFin
+          endTime: h.horaFin,
+          color: color,
+          extendedProps: { categoria: materia.categoria }
         });
         materia.addedEvents.push(event);
       });
+      renderMaterias();
     }
 
-    // Eliminar una materia del calendario
+    // Eliminar materia del calendario
     function eliminarDelCalendario(index) {
       const materia = window.materiasDetectadas[index];
       if (materia.addedEvents.length === 0) {
@@ -136,7 +183,11 @@
 
       materia.addedEvents.forEach(event => event.remove());
       materia.addedEvents = [];
+      renderMaterias();
     }
+
+    // Filtro de la lista lateral
+    document.getElementById('filtro').addEventListener('change', renderMaterias);
   </script>
 </body>
 </html>
