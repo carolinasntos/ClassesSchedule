@@ -65,6 +65,17 @@
       <option value="Four year">Four year</option>
       <option value="Four year">Everyone</option>
     </select>
+    <div id="filtroDias">
+      <label>Filtrar por día:</label><br>
+      <button onclick="filtrarPorDia('All')">Todos</button>
+      <button onclick="filtrarPorDia('Mon')">Lun</button>
+      <button onclick="filtrarPorDia('Tue')">Mar</button>
+      <button onclick="filtrarPorDia('Wed')">Mié</button>
+      <button onclick="filtrarPorDia('Thu')">Jue</button>
+      <button onclick="filtrarPorDia('Fri')">Vie</button>
+      <button onclick="filtrarPorDia('Sat')">Sáb</button>
+      <button onclick="filtrarPorDia('Sun')">Dom</button>
+    </div>
     <div id="materiasLista"></div>
   </div>
 
@@ -145,8 +156,47 @@
       return materias;
     }
 
+    let filtroDia = 'All';
+    function filtrarPorDia(dia) {
+      filtroDia = dia;
+      renderMaterias();
+    }
+
     // Renderizar materias según filtro
     function renderMaterias() {
+      const filtroCategoria = document.getElementById('filtro').value;
+      materiasLista.innerHTML = '';
+
+      window.materiasDetectadas.forEach((m, index) => {
+        const cumpleCategoria = filtroCategoria === 'All' || m.categoria === filtroCategoria;
+        const cumpleDia = filtroDia === 'All' || m.horarios.some(h => h.dia === filtroDia);
+
+        if (cumpleCategoria && cumpleDia) {
+          const div = document.createElement('div');
+          div.className = 'materia';
+          div.id = `materia-${index}`;
+          div.innerHTML = `
+            <strong>${m.materia}</strong><br>
+            Profesor: ${m.profesor}<br>
+            Créditos: ${m.creditos}<br>
+            Horarios: ${m.horarios.map(h => `${h.dia} ${h.horaInicio}-${h.horaFin}`).join(', ')}<br>
+            <label>Categoría:</label>
+            <select onchange="cambiarCategoria(${index}, this.value)">
+              <option value="">Seleccionar...</option>
+              ${categorias.map(cat => 
+                `<option value="${cat.nombre}" ${m.categoria === cat.nombre ? 'selected' : ''}>${cat.nombre}</option>`
+              ).join('')}
+            </select>
+            <div class="actions">
+              <button onclick="agregarAlCalendario(${index})">Agregar</button>
+              <button onclick="eliminarDelCalendario(${index})">Eliminar</button>
+            </div>
+          `;
+          materiasLista.appendChild(div);
+        }
+      });
+    }
+    /*function renderMaterias() {
       const filtro = document.getElementById('filtro').value;
       materiasLista.innerHTML = '';
 
@@ -157,7 +207,7 @@
           div.id = `materia-${index}`;
           div.innerHTML = `
             <strong>${m.materia}</strong><br>
-            <label>${m.creditos}</label>
+            <label>${m.creditos}</label> creditos<br>
             Código: ${m.codigo}<br>
             Profesor: ${m.profesor}<br>
             Horarios: ${m.horarios.map(h => `${h.dia} ${h.horaInicio}-${h.horaFin}`).join(', ')}<br>
@@ -176,7 +226,7 @@
           materiasLista.appendChild(div);
         }
       });
-    }
+    }*/
 
     // Cambiar categoría de una materia
     function cambiarCategoria(index, categoria) {
