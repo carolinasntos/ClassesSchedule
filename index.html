@@ -48,6 +48,7 @@
     calendar.render();
 
     const materiasLista = document.getElementById('materiasLista');
+    window.materiasDetectadas = [];
 
     // Leer archivo TXT
     document.getElementById('fileInput').addEventListener('change', async (e) => {
@@ -57,6 +58,8 @@
       const text = await file.text();
       const materias = parseTxt(text);
       mostrarMaterias(materias);
+
+      // NO SE AGREGA AUTOMÁTICAMENTE AL CALENDARIO
     });
 
     // Parsear contenido del archivo .txt
@@ -88,7 +91,7 @@
     // Mostrar materias detectadas en lista lateral
     function mostrarMaterias(materias) {
       materiasLista.innerHTML = '';
-      window.materiasDetectadas = materias; // Guardar en variable global
+      window.materiasDetectadas = materias;
 
       materias.forEach((m, index) => {
         const div = document.createElement('div');
