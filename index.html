@@ -11,6 +11,13 @@
       height: 100%;
       overflow-y: auto;
     }
+
+    #materiasLista {
+      flex-grow: 1;
+      overflow-y: auto;          /* Scroll independiente */
+      max-height: calc(100vh - 180px); /* Ajusta según tu diseño */
+    }
+
     #calendar-container {
       flex-grow: 1;
       display: flex;
