@@ -88,6 +88,8 @@
     // Mostrar materias detectadas en lista lateral
     function mostrarMaterias(materias) {
       materiasLista.innerHTML = '';
+      window.materiasDetectadas = materias; // Guardar en variable global
+
       materias.forEach((m, index) => {
         const div = document.createElement('div');
         div.className = 'materia';
@@ -99,12 +101,9 @@
         `;
         materiasLista.appendChild(div);
       });
-
-      // Guardar materias en una variable global para acceso en agregarAlCalendario
-      window.materiasDetectadas = materias;
     }
 
-    // Agregar una materia seleccionada al calendario
+    // Agregar una materia seleccionada al calendario manualmente
     function agregarAlCalendario(index) {
       const materia = window.materiasDetectadas[index];
       materia.horarios.forEach(h => {
