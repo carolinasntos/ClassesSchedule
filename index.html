@@ -2,143 +2,120 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Horario OCR - Materias</title>
-  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
+  <title>Horario desde Imagen</title>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.global.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.9/index.global.min.js"></script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      display: flex;
-      margin: 20px;
-    }
-    #subjects-panel {
-      width: 300px;
-      margin-right: 20px;
-    }
-    #subjects-list {
-      border: 1px solid #ccc;
-      min-height: 200px;
-      padding: 10px;
-      background: #f9f9f9;
-      border-radius: 5px;
-      max-height: 80vh;
-      overflow-y: auto;
-    }
-    .subject-block {
-      background: #007bff;
-      color: white;
-      padding: 8px;
-      margin-bottom: 5px;
-      border-radius: 4px;
-      cursor: grab;
-    }
-    #calendar {
-      flex-grow: 1;
-      max-width: 900px;
-    }
+    body { font-family: Arial, sans-serif; display: flex; gap: 20px; margin: 20px; }
+    #materias { width: 300px; }
+    #calendar { flex: 1; }
+    .materia { padding: 8px; margin: 5px 0; background: #f5f5f5; border: 1px solid #ddd; cursor: grab; }
   </style>
 </head>
 <body>
-  <div id="subjects-panel">
+  <div id="materias">
     <h2>Materias detectadas</h2>
-    <input type="file" id="imageInput" accept="image/*"><br><br>
-    <div id="subjects-list"></div>
+    <input type="file" id="fileInput" accept="image/*">
+    <div id="materias-list"></div>
   </div>
 
   <div id="calendar"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
-
   <script>
-    const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
-      initialView: 'timeGridWeek',
-      slotMinTime: "07:00:00",
-      slotMaxTime: "21:00:00",
-      editable: true,
-      droppable: true,
-      headerToolbar: {
-        left: 'prev,next today',
-        center: 'title',
-        right: 'timeGridWeek,timeGridDay'
-      }
-    });
-    calendar.render();
+    const fileInput = document.getElementById('fileInput');
+    const materiasList = document.getElementById('materias-list');
+    let calendar;
 
-    document.getElementById('imageInput').addEventListener('change', async function (e) {
+    document.addEventListener('DOMContentLoaded', () => {
+      calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+        initialView: 'timeGridWeek',
+        editable: true,
+        droppable: true
+      });
+      calendar.render();
+    });
+
+    fileInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
 
-      const { data: { text } } = await Tesseract.recognize(file, 'eng'); 
-      console.log("Texto OCR detectado:", text);
-
+      const { data: { text } } = await Tesseract.recognize(file, 'eng');
+      console.log('Texto OCR:', text);
       const materias = parseTable(text);
-      renderSubjects(materias);
+      renderMaterias(materias);
     });
 
     function parseTable(text) {
       const materias = [];
       const lines = text.split('\n').map(l => l.trim()).filter(l => l);
 
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
+      for (let line of lines) {
+        const cols = line.split(/\s{2,}/); // dividir por 2+ espacios
+        if (cols.length >= 6) {
+          const codigo = cols[1] || '';
+          const nombre = cols[2] || '';
+          const creditos = cols[4] || '0';
+          const profesor = cols[7] || '';
+          const horariosTexto = cols[8] || '';
 
-        // Ejemplo de formato esperado:
-        // "CUL1120 Big data, IoT ... 3cr Thu(16:00-17:30) Thu(17:30-19:00) Prof: Kim Seong Hee"
-        const match = line.match(/([A-Z]{2,}\d{3,})\s+(.+?)\s+(\d)cr\s+(.*?)\s+Prof:\s*(.+)/i);
+          const horarios = [...horariosTexto.matchAll(/(Mon|Tue|Wed|Thu|Fri)\((\d{2}:\d{2})-(\d{2}:\d{2})\)/g)]
+            .map(h => ({ dia: h[1], horaInicio: h[2], horaFin: h[3] }));
 
-        if (match) {
-          const codigo = match[1];
-          const nombre = match[2];
-          const creditos = match[3];
-          const horariosRaw = match[4];
-          const profesor = match[5];
-
-          // Buscar múltiples horarios: Ejemplo "Wed(14:30-16:00) Fri(10:30-12:00)"
-          const horarios = [...horariosRaw.matchAll(/(Mon|Tue|Wed|Thu|Fri)\((\d{2}:\d{2})-(\d{2}:\d{2})\)/g)]
-            .map(h => ({
-              dia: h[1],
-              horaInicio: h[2],
-              horaFin: h[3]
-            }));
-
-          materias.push({ codigo, nombre, creditos, horarios, profesor });
+          if (codigo && nombre && horarios.length > 0) {
+            materias.push({ codigo, nombre, creditos, profesor, horarios });
+          }
         }
       }
       return materias;
     }
 
-    function renderSubjects(materias) {
-      const container = document.getElementById('subjects-list');
-      container.innerHTML = '';
-
+    function renderMaterias(materias) {
+      materiasList.innerHTML = '';
       materias.forEach(materia => {
         const div = document.createElement('div');
-        div.className = 'subject-block';
-        div.textContent = `${materia.codigo} ${materia.nombre}`;
+        div.className = 'materia';
+        div.textContent = `${materia.codigo} - ${materia.nombre} (${materia.profesor})`;
 
-        // Cada materia puede tener múltiples horarios → eventos múltiples
-        div.dataset.events = JSON.stringify(
-          materia.horarios.map(h => ({
-            title: `${materia.nombre} - ${materia.profesor}`,
-            daysOfWeek: [getDayNumber(h.dia)],
-            startTime: h.horaInicio,
-            endTime: h.horaFin
-          }))
-        );
-
-        new FullCalendar.Draggable(div, {
-          eventData: function() {
-            return JSON.parse(div.dataset.events);
-          }
+        div.draggable = true;
+        div.addEventListener('dragstart', e => {
+          e.dataTransfer.setData('materia', JSON.stringify(materia));
         });
 
-        container.appendChild(div);
+        materiasList.appendChild(div);
+      });
+
+      document.getElementById('calendar').addEventListener('dragover', e => e.preventDefault());
+      document.getElementById('calendar').addEventListener('drop', e => {
+        e.preventDefault();
+        const materia = JSON.parse(e.dataTransfer.getData('materia'));
+
+        materia.horarios.forEach(h => {
+          const dayMap = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5 };
+          const day = dayMap[h.dia];
+          if (!day) return;
+
+          const start = getDateForDay(day, h.horaInicio);
+          const end = getDateForDay(day, h.horaFin);
+
+          calendar.addEvent({
+            title: `${materia.nombre} (${materia.profesor})`,
+            start,
+            end
+          });
+        });
       });
     }
 
-    function getDayNumber(day) {
-      const days = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
-      return days[day] || 0;
+    function getDateForDay(day, time) {
+      const now = new Date();
+      const currentDay = now.getDay();
+      const diff = day - currentDay;
+      const date = new Date(now);
+      date.setDate(now.getDate() + diff);
+      const [hours, minutes] = time.split(':').map(Number);
+      date.setHours(hours, minutes, 0, 0);
+      return date;
     }
   </script>
 </body>
