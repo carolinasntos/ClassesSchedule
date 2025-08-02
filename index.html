@@ -6,7 +6,7 @@
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
   <style>
     body { font-family: Arial, sans-serif; display: flex; gap: 20px; padding: 20px; }
-    #materias { width: 300px; }
+    #materias { width: 320px; }
     .materia {
       border: 1px solid #ccc;
       background: #f9f9f9;
@@ -16,7 +16,8 @@
     }
     .materia button {
       margin-top: 5px;
-      width: 100%;
+      width: 48%;
+      display: inline-block;
     }
     #calendar { flex-grow: 1; max-width: 900px; }
   </style>
@@ -58,8 +59,6 @@
       const text = await file.text();
       const materias = parseTxt(text);
       mostrarMaterias(materias);
-
-      // NO SE AGREGA AUTOMÁTICAMENTE AL CALENDARIO
     });
 
     // Parsear contenido del archivo .txt
@@ -82,7 +81,7 @@
             horarios.push({ dia: match[1], horaInicio: match[2], horaFin: match[3] });
           }
 
-          materias.push({ materia, profesor, horarios });
+          materias.push({ materia, profesor, horarios, addedEvents: [] });
         }
       });
       return materias;
@@ -96,11 +95,13 @@
       materias.forEach((m, index) => {
         const div = document.createElement('div');
         div.className = 'materia';
+        div.id = `materia-${index}`;
         div.innerHTML = `
           <strong>${m.materia}</strong><br>
           Profesor: ${m.profesor}<br>
-          Horarios: ${m.horarios.map(h => `${h.dia} ${h.horaInicio}-${h.horaFin}`).join(', ')}
-          <button onclick="agregarAlCalendario(${index})">Agregar al calendario</button>
+          Horarios: ${m.horarios.map(h => `${h.dia} ${h.horaInicio}-${h.horaFin}`).join(', ')}<br>
+          <button onclick="agregarAlCalendario(${index})">Agregar</button>
+          <button onclick="eliminarDelCalendario(${index})">Eliminar</button>
         `;
         materiasLista.appendChild(div);
       });
@@ -109,14 +110,32 @@
     // Agregar una materia seleccionada al calendario manualmente
     function agregarAlCalendario(index) {
       const materia = window.materiasDetectadas[index];
+      if (materia.addedEvents.length > 0) {
+        alert('Esta materia ya está agregada al calendario.');
+        return;
+      }
+
       materia.horarios.forEach(h => {
-        calendar.addEvent({
+        const event = calendar.addEvent({
           title: `${materia.materia} (${materia.profesor})`,
           daysOfWeek: [daysMap[h.dia]],
           startTime: h.horaInicio,
           endTime: h.horaFin
         });
+        materia.addedEvents.push(event);
       });
+    }
+
+    // Eliminar una materia del calendario
+    function eliminarDelCalendario(index) {
+      const materia = window.materiasDetectadas[index];
+      if (materia.addedEvents.length === 0) {
+        alert('Esta materia no está en el calendario.');
+        return;
+      }
+
+      materia.addedEvents.forEach(event => event.remove());
+      materia.addedEvents = [];
     }
   </script>
 </body>
