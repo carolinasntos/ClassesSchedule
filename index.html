@@ -2,125 +2,144 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Calendario de Horarios</title>
+  <title>Horario OCR - Materias</title>
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
   <style>
     body {
       font-family: Arial, sans-serif;
-      margin: 2em;
+      display: flex;
+      margin: 20px;
+    }
+    #subjects-panel {
+      width: 300px;
+      margin-right: 20px;
+    }
+    #subjects-list {
+      border: 1px solid #ccc;
+      min-height: 200px;
+      padding: 10px;
+      background: #f9f9f9;
+      border-radius: 5px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .subject-block {
+      background: #007bff;
+      color: white;
+      padding: 8px;
+      margin-bottom: 5px;
+      border-radius: 4px;
+      cursor: grab;
     }
     #calendar {
+      flex-grow: 1;
       max-width: 900px;
-      margin: 2em auto;
     }
   </style>
 </head>
 <body>
-  <h1>Horario Académico</h1>
-  <p>Sube un archivo Excel con columnas: <strong>Materia</strong>, <strong>Día</strong>, <strong>Hora inicio</strong>, <strong>Hora fin</strong>.</p>
-  <input type="file" id="fileInput" />
+  <div id="subjects-panel">
+    <h2>Materias detectadas</h2>
+    <input type="file" id="imageInput" accept="image/*"><br><br>
+    <div id="subjects-list"></div>
+  </div>
+
   <div id="calendar"></div>
 
-  <!-- Librerías externas -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
 
-  <!-- Script principal -->
   <script>
     const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
       initialView: 'timeGridWeek',
-      slotMinTime: "07:00:00",  // hora de inicio del calendario
-      slotMaxTime: "24:00:00",  // hora final del calendario
-      slotDuration: '00:30:00',        // franjas de 30 minutos
-      slotLabelInterval: '01:00',      // etiquetas cada hora
-      contentHeight: 600,              // ajusta la altura del calendario
-      allDaySlot: false,
+      slotMinTime: "07:00:00",
+      slotMaxTime: "21:00:00",
       editable: true,
-      selectable: true,
+      droppable: true,
       headerToolbar: {
         left: 'prev,next today',
         center: 'title',
         right: 'timeGridWeek,timeGridDay'
-      },
-      events: [],
-      select: function(info) {
-        const title = prompt('Nombre de la materia:');
-        if (title) {
-          calendar.addEvent({
-            title: title,
-            start: info.start,
-            end: info.end,
-            allDay: false
-          });
-        }
-        calendar.unselect();
-      },
-      eventClick: function(info) {
-        if (confirm('¿Eliminar esta clase?')) {
-          info.event.remove();
-        }
       }
     });
-
     calendar.render();
 
-    document.getElementById('fileInput').addEventListener('change', function(e) {
+    document.getElementById('imageInput').addEventListener('change', async function (e) {
       const file = e.target.files[0];
       if (!file) return;
 
-      const reader = new FileReader();
-      reader.onload = function(evt) {
-        const data = new Uint8Array(evt.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(sheet);
+      const { data: { text } } = await Tesseract.recognize(file, 'eng'); 
+      console.log("Texto OCR detectado:", text);
 
-        const dayToIndex = {
-          "Domingo": 0,
-          "Lunes": 1,
-          "Martes": 2,
-          "Miércoles": 3,
-          "Miercoles": 3,
-          "Jueves": 4,
-          "Viernes": 5,
-          "Sábado": 6,
-          "Sabado": 6
-        };
-
-        const baseDate = new Date();
-        const currentWeekStart = new Date(baseDate.setDate(baseDate.getDate() - baseDate.getDay()));
-
-        const parseHour = (date, timeStr) => {
-          const [h, m] = timeStr.split(':').map(Number);
-          const d = new Date(date);
-          d.setHours(h);
-          d.setMinutes(m);
-          return d;
-        };
-
-        calendar.removeAllEvents();
-
-        rows.forEach(row => {
-          const day = dayToIndex[row["Día"]];
-          if (day === undefined) return;
-
-          const classDate = new Date(currentWeekStart);
-          classDate.setDate(classDate.getDate() + day);
-
-          const start = parseHour(classDate, row["Hora inicio"]);
-          const end = parseHour(classDate, row["Hora fin"]);
-
-          calendar.addEvent({
-            title: row["Materia"],
-            start: start.toISOString(),
-            end: end.toISOString(),
-            allDay: false
-          });
-        });
-      };
-
-      reader.readAsArrayBuffer(file);
+      const materias = parseTable(text);
+      renderSubjects(materias);
     });
+
+    function parseTable(text) {
+      const materias = [];
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        // Ejemplo de formato esperado:
+        // "CUL1120 Big data, IoT ... 3cr Thu(16:00-17:30) Thu(17:30-19:00) Prof: Kim Seong Hee"
+        const match = line.match(/([A-Z]{2,}\d{3,})\s+(.+?)\s+(\d)cr\s+(.*?)\s+Prof:\s*(.+)/i);
+
+        if (match) {
+          const codigo = match[1];
+          const nombre = match[2];
+          const creditos = match[3];
+          const horariosRaw = match[4];
+          const profesor = match[5];
+
+          // Buscar múltiples horarios: Ejemplo "Wed(14:30-16:00) Fri(10:30-12:00)"
+          const horarios = [...horariosRaw.matchAll(/(Mon|Tue|Wed|Thu|Fri)\((\d{2}:\d{2})-(\d{2}:\d{2})\)/g)]
+            .map(h => ({
+              dia: h[1],
+              horaInicio: h[2],
+              horaFin: h[3]
+            }));
+
+          materias.push({ codigo, nombre, creditos, horarios, profesor });
+        }
+      }
+      return materias;
+    }
+
+    function renderSubjects(materias) {
+      const container = document.getElementById('subjects-list');
+      container.innerHTML = '';
+
+      materias.forEach(materia => {
+        const div = document.createElement('div');
+        div.className = 'subject-block';
+        div.textContent = `${materia.codigo} ${materia.nombre}`;
+
+        // Cada materia puede tener múltiples horarios → eventos múltiples
+        div.dataset.events = JSON.stringify(
+          materia.horarios.map(h => ({
+            title: `${materia.nombre} - ${materia.profesor}`,
+            daysOfWeek: [getDayNumber(h.dia)],
+            startTime: h.horaInicio,
+            endTime: h.horaFin
+          }))
+        );
+
+        new FullCalendar.Draggable(div, {
+          eventData: function() {
+            return JSON.parse(div.dataset.events);
+          }
+        });
+
+        container.appendChild(div);
+      });
+    }
+
+    function getDayNumber(day) {
+      const days = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+      return days[day] || 0;
+    }
   </script>
 </body>
 </html>
