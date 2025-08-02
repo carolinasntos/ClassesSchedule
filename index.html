@@ -68,6 +68,13 @@
     <div id="materiasLista"></div>
   </div>
 
+  <div style="flex-grow: 1;">
+    <h3>Total de Créditos: <span id="creditos">0</span></h3>
+    <div id="calendar-container">
+      <div id="calendar"></div>
+    </div>
+  </div>
+
   <div id="calendar-container">
     <div id="calendar"></div>
   </div>
@@ -119,6 +126,8 @@
         if (index === 0) return; // saltar encabezado si lo hay
         const cols = line.split('|').map(c => c.trim());
         if (cols.length >= 7) {
+          const creditos = parseInt(cols[1], 10);
+          const codigo = cols[2];
           const materia = cols[3];
           const profesor = cols[4];
           const horariosRaw = cols[5];
@@ -130,7 +139,7 @@
             horarios.push({ dia: match[1], horaInicio: match[2], horaFin: match[3] });
           }
 
-          materias.push({ materia, profesor, horarios, addedEvents: [], categoria: "" });
+          materias.push({ creditos, codigo, materia, profesor, horarios, addedEvents: [], categoria: "" });
         }
       });
       return materias;
@@ -198,6 +207,8 @@
         });
         materia.addedEvents.push(event);
       });
+      totalCreditos += materia.creditos;
+      actualizarCreditos();
       renderMaterias();
     }
 
@@ -211,7 +222,17 @@
 
       materia.addedEvents.forEach(event => event.remove());
       materia.addedEvents = [];
+      
+      totalCreditos -= materia.creditos;
+      if (totalCreditos < 0) totalCreditos = 0;
+      actualizarCreditos();
       renderMaterias();
+    }
+
+    let totalCreditos = 0;
+
+    function actualizarCreditos() {
+      document.getElementById('creditos').textContent = totalCreditos;
     }
 
     // Filtro de la lista lateral
