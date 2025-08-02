@@ -11,8 +11,8 @@
   </style>
 </head>
 <body>
-  <h2>Subir archivo de materias</h2>
-  <input type="file" id="fileInput" accept=".txt">
+  <h2>Subir archivo de materias (.txt)</h2>
+  <input type="file" id="fileInput" accept=".txt,text/plain">
   <div id="calendar"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
@@ -32,10 +32,19 @@
     });
     calendar.render();
 
-    // Leer archivo TXT
+    // Escuchar archivo
     document.getElementById('fileInput').addEventListener('change', async (e) => {
       const file = e.target.files[0];
-      if (!file) return;
+      if (!file) {
+        alert('Por favor selecciona un archivo .txt');
+        return;
+      }
+
+      // Validar tipo de archivo
+      if (!file.name.endsWith('.txt')) {
+        alert('El archivo debe ser un .txt');
+        return;
+      }
 
       const text = await file.text();
       const materias = parseTxt(text);
@@ -53,12 +62,13 @@
       });
     });
 
-    // Parsear texto del archivo
+    // Parsear contenido del archivo .txt
     function parseTxt(text) {
-      const lines = text.split('\n').slice(1); // quitar encabezado
+      const lines = text.split('\n').filter(l => l.trim() !== '');
       const materias = [];
 
-      lines.forEach(line => {
+      lines.forEach((line, index) => {
+        if (index === 0) return; // saltar encabezado si lo hay
         const cols = line.split('|').map(c => c.trim());
         if (cols.length >= 7) {
           const materia = cols[3];
