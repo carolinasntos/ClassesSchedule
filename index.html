@@ -157,6 +157,8 @@
           div.id = `materia-${index}`;
           div.innerHTML = `
             <strong>${m.materia}</strong><br>
+            <label>${m.creditos}</label>
+            Código: ${m.codigo}<br>
             Profesor: ${m.profesor}<br>
             Horarios: ${m.horarios.map(h => `${h.dia} ${h.horaInicio}-${h.horaFin}`).join(', ')}<br>
             <label>Categoría:</label>
@@ -222,7 +224,7 @@
 
       materia.addedEvents.forEach(event => event.remove());
       materia.addedEvents = [];
-      
+
       totalCreditos -= materia.creditos;
       if (totalCreditos < 0) totalCreditos = 0;
       actualizarCreditos();
