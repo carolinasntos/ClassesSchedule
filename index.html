@@ -30,13 +30,15 @@
 </head>
 <body>
   <div id="materias">
-    <h2>Materias detectadas</h2>
+    <h2>Registration Courses</h2>
     <input type="file" id="fileInput" accept=".txt,text/plain">
+    <br>
     <label for="filtro">Filtrar por categoría: </label>
     <select id="filtro">
       <option value="All">All</option>
       <option value="Exchange">Exchange</option>
       <option value="Four year">Four year</option>
+      <option value="Four year">Everyone</option>
     </select>
     <div id="materiasLista"></div>
   </div>
@@ -52,6 +54,7 @@
     const categorias = [
       { nombre: "Exchange", color: "#007bff" },
       { nombre: "Four year", color: "#28a745" },
+      { nombre: "Everyone", color: "#009bff" },
       { nombre: "All", color: "#6c757d" }
     ];
 
