@@ -3,11 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Horario de Materias</title>
+  <title>Horario de Materias - Hanyang</title>
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; }
     #calendar { max-width: 1200px; margin: 20px auto; }
+    input { margin-bottom: 20px; }
   </style>
 </head>
 <body>
@@ -20,10 +21,8 @@
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
 
   <script>
-    // Mapa de días
     const daysMap = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 0 };
 
-    // Inicializa el calendario
     const calendarEl = document.getElementById('calendar');
     const calendar = new FullCalendar.Calendar(calendarEl, {
       initialView: 'timeGridWeek',
@@ -31,31 +30,36 @@
       allDaySlot: false,
       slotMinTime: '08:00:00',
       slotMaxTime: '21:00:00',
-      weekends: false, // solo lunes a viernes
+      weekends: false,
       dayHeaderFormat: { weekday: 'long' },
       events: []
     });
     calendar.render();
 
-    // Función OCR para leer texto desde la imagen
     async function extractTextFromImage(file) {
       const { data: { text } } = await Tesseract.recognize(file, 'eng');
       return text;
     }
 
-    // Parsea el texto en eventos
     function parseSchedule(text) {
       const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
       const events = [];
 
-      lines.forEach(line => {
-        // Ejemplo esperado: "Big Data - Thu 15:00-17:30"
-        const match = line.match(/(.+?) - (Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+(\d{1,2}:\d{2})-(\d{1,2}:\d{2})/i);
+      let currentSubject = '';
 
-        if (match) {
-          const [, title, day, start, end] = match;
+      lines.forEach(line => {
+        // Detectar nombres de materias (palabras largas que no son días)
+        if (!/(Mon|Tue|Wed|Thu|Fri|Sat|Sun)/i.test(line) && !/\d{1,2}:\d{2}/.test(line)) {
+          currentSubject = line;
+        }
+
+        // Detectar días y horarios tipo: "Wed(14:30-16:00)" o "Mon(10:00-11:30)"
+        const regex = /(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s*\(?(\d{1,2}:\d{2})-(\d{1,2}:\d{2})\)?/gi;
+        let match;
+        while ((match = regex.exec(line)) !== null) {
+          const [, day, start, end] = match;
           events.push({
-            title: title.trim(),
+            title: currentSubject || 'Clase',
             daysOfWeek: [daysMap[day]],
             startTime: start,
             endTime: end
@@ -66,14 +70,16 @@
       return events;
     }
 
-    // Evento de carga de imagen
     document.getElementById('upload').addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
 
       const text = await extractTextFromImage(file);
+      console.log('Texto detectado:', text);
+
       const events = parseSchedule(text);
 
+      calendar.getEvents().forEach(event => event.remove());
       events.forEach(event => calendar.addEvent(event));
     });
   </script>
