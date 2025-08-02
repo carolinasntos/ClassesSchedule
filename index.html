@@ -2,8 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Horario de Materias - Hanyang</title>
+  <title>Horario de Materias</title>
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; }
@@ -12,14 +11,11 @@
   </style>
 </head>
 <body>
-  <h2>Materias detectadas</h2>
-  <input type="file" id="upload" accept="image/*">
-
+  <h2>Subir archivo de materias</h2>
+  <input type="file" id="fileInput" accept=".txt">
   <div id="calendar"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
-
   <script>
     const daysMap = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 0 };
 
@@ -36,52 +32,51 @@
     });
     calendar.render();
 
-    async function extractTextFromImage(file) {
-      const { data: { text } } = await Tesseract.recognize(file, 'eng');
-      return text;
-    }
-
-    function parseSchedule(text) {
-      const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-      const events = [];
-
-      let currentSubject = '';
-
-      lines.forEach(line => {
-        // Detectar nombres de materias (palabras largas que no son días)
-        if (!/(Mon|Tue|Wed|Thu|Fri|Sat|Sun)/i.test(line) && !/\d{1,2}:\d{2}/.test(line)) {
-          currentSubject = line;
-        }
-
-        // Detectar días y horarios tipo: "Wed(14:30-16:00)" o "Mon(10:00-11:30)"
-        const regex = /(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s*\(?(\d{1,2}:\d{2})-(\d{1,2}:\d{2})\)?/gi;
-        let match;
-        while ((match = regex.exec(line)) !== null) {
-          const [, day, start, end] = match;
-          events.push({
-            title: currentSubject || 'Clase',
-            daysOfWeek: [daysMap[day]],
-            startTime: start,
-            endTime: end
-          });
-        }
-      });
-
-      return events;
-    }
-
-    document.getElementById('upload').addEventListener('change', async (e) => {
+    // Leer archivo TXT
+    document.getElementById('fileInput').addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
 
-      const text = await extractTextFromImage(file);
-      console.log('Texto detectado:', text);
+      const text = await file.text();
+      const materias = parseTxt(text);
 
-      const events = parseSchedule(text);
-
-      calendar.getEvents().forEach(event => event.remove());
-      events.forEach(event => calendar.addEvent(event));
+      calendar.getEvents().forEach(event => event.remove()); // limpiar calendario
+      materias.forEach(materia => {
+        materia.horarios.forEach(h => {
+          calendar.addEvent({
+            title: `${materia.materia} (${materia.profesor})`,
+            daysOfWeek: [daysMap[h.dia]],
+            startTime: h.horaInicio,
+            endTime: h.horaFin
+          });
+        });
+      });
     });
+
+    // Parsear texto del archivo
+    function parseTxt(text) {
+      const lines = text.split('\n').slice(1); // quitar encabezado
+      const materias = [];
+
+      lines.forEach(line => {
+        const cols = line.split('|').map(c => c.trim());
+        if (cols.length >= 7) {
+          const materia = cols[3];
+          const profesor = cols[4];
+          const horariosRaw = cols[5];
+
+          const horarios = [];
+          const regex = /(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\((\d{1,2}:\d{2})[–-](\d{1,2}:\d{2})\)/g;
+          let match;
+          while ((match = regex.exec(horariosRaw)) !== null) {
+            horarios.push({ dia: match[1], horaInicio: match[2], horaFin: match[3] });
+          }
+
+          materias.push({ materia, profesor, horarios });
+        }
+      });
+      return materias;
+    }
   </script>
 </body>
 </html>
